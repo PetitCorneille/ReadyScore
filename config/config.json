@@ -1,0 +1,53 @@
+{
+  "spark": {
+		"mongodb_uri_l": "mongodb://localhost:27017",
+		"mongodb_uri_e": "mongodb://localhost:27017",
+		"core_master" : "local[2]",
+		"database": "scoring",
+		"memoire_driver" : "5g", 
+		"memoire_executor" : "5g",
+		"nombre_cores" : 4,
+		"nombre_cores_max" : 4,
+		"collection": "ma_collection",
+		"master" : "local[2]"
+	  
+  },
+  "refund_period": {
+		"Nano_Loan": 15,
+		"Macro_Loan": 15,
+		"Advanced_Credit": 15,
+		"Cash_Roller_Over": 30
+  },
+  "individual_period": {
+		"Refund_Bonus": 2.5,
+		"Normal": 2,
+		"Reconducted": 1.75,
+		"Penalty": 0.3
+  },
+  "corporates_period": {
+		"Refund_Bonus": 10,
+		"Normal": 4,
+		"Reconducted": 3.5,
+		"Penalty": 0.6
+  },
+  "operator_patterns" :{
+        "MTN CM": "^237(67[0-9]{7}|68[0-4]{1}[0-9]{6}|65[0-4]{1}[0-9]{6})$",
+        "Orange CM": "^237(69[0-9]{7}|65[5-9]{1}[0-9]{6}|68[6-9]{1}[0-9]{6})$"
+    },
+    "country_codes" :{
+		"237": "Cameroun",
+        "33": "France",
+        "1": "USA",
+        "44": "Royaume-Uni",
+        "49": "Allemagne"
+    },
+    "server_ips" :{
+        "MTN CM": "192.168.1.1",
+        "Orange CM": "192.168.1.2"
+    },
+	"tranche_age" : {
+		"min" : 21,
+		"max" : 60
+	}
+    
+}
