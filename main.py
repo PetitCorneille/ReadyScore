@@ -29,7 +29,7 @@ spark = SparkSession.builder \
     .config("spark.executor.cores", load_params.spark_config["nombre_cores"]) \
     .config("spark.cores.max", load_params.spark_config["nombre_cores_max"]) \
     .getOrCreate()
-
+""" 
 print("Étape 0 : Ajout des colonnes aux data sets ....")
 dfc = spark.read.format("mongodb") \
           .option("database", load_params.spark_config["database"]) \
@@ -114,7 +114,7 @@ try:
 except Exception as e:
     print(f"Erreur lors de l'étape 6 : {e}")
     print("Veuillez vérifier scoring_and_profiling.py pour diagnostiquer le problème.")
-
+ 
 # Étape 7 : Analyse exploratoire des résultats de scoring et de profiling
 print("Étape 7 : Veuillez exécuter le Notebook EDA dans notebooks/EDA_scored_data.ipynb.")
 # Étape 8 : Segmentation des profils
@@ -190,7 +190,7 @@ except Exception as e:
  
     # Étape 11 : Analyse des crédits alloués
 print("Étape 11 : Veuillez exécuter le Notebook EDA dans notebooks/EDA_cash_allocated.ipynb.")
- 
+  """
 # Étape 12 : Gestion des clients avec plusieurs SIM
 print("Étape 12 : Gestion des clients avec plusieurs SIM...")
 try:
@@ -243,11 +243,11 @@ try:
 
     # Étape d: Mise à jour des prêts des clients avec le bonus/malus
     print("Mise à jour des prêts des clients avec le bonus/malus...")
-    update_loans_with_bonus_malus(final_clients_with_bonus_malus)
-    transactions_previous_month.write \
+    final_clients_with_bonus_malus = update_loans_with_bonus_malus(final_clients_with_bonus_malus)
+    final_clients_with_bonus_malus.write \
                     .format("mongodb") \
                     .option("database", load_params.spark_config["database"]) \
-                    .option("collection", "transactions_previous_month") \
+                    .option("collection", "final_clients_with_bonus_malus") \
                     .mode("overwrite") \
                     .save()
     print(f"Collections mise à jour avec succès dans la base de données Scoring.")

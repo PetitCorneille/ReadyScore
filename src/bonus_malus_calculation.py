@@ -29,15 +29,11 @@ def process_transactions(input_file):
     transactions = transactions.withColumn("days_in_month", dayofmonth(last_day(col("transaction_date"))))
 
     # Créer des DataFrames pour nameOrig et nameDest
-
-    sim_numbers_orig = transactions.select("nameOrig", "transaction_date", "newbalanceOrig") \
-              .withColumnRenamed("SIM_NUMBER", "balance") \
-              .withColumnRenamed("nameOrig", "newbalanceOrig")
-
-
-    sim_numbers_dest = transactions.select("nameDest", "transaction_date", "newbalanceDest") \
-              .withColumnRenamed("SIM_NUMBER", "balance") \
-              .withColumnRenamed("nameDest", "newbalanceDest")
+    sim_numbers_orig = transactions.select(col('nameOrig').alias('SIM_NUMBER'),'transaction_date',
+                                           col('newbalanceOrig').alias('balance'))
+    sim_numbers_dest = transactions.select(col('nameDest').alias('SIM_NUMBER'),'transaction_date',
+                                           col('newbalanceOrig').alias('balance'))
+    
     # Fusionner les deux DataFrames pour obtenir une vue complète
     transactions_with_sims = sim_numbers_orig.union(sim_numbers_dest)
 
@@ -45,13 +41,13 @@ def process_transactions(input_file):
     transactions_with_sims = transactions_with_sims.withColumn("day_of_month", dayofmonth(col("transaction_date")))
     transactions_with_sims = transactions_with_sims.withColumn("days_in_month", dayofmonth(last_day(col("transaction_date"))))
 
-    relevant_transactions = relevant_transactions.filter((col("day_of_month") == 15) | (col("day_of_month") == col("days_in_month")))
+    relevant_transactions = transactions_with_sims.filter((col("day_of_month") == 15) | (col("day_of_month") == col("days_in_month")))
     # Ajouter la colonne DATE_OF_THE_DAY pour l'agrégation
     relevant_transactions = relevant_transactions.withColumn("DATE_OF_THE_DAY", col("transaction_date"))
 
     # Grouper par SIM_NUMBER et DATE_OF_THE_DAY, puis calculer la moyenne des soldes
-    result = relevant_transactions.groupby(['SIM_NUMBER', 'DATE_OF_THE_DAY'])['balance'].mean().reset_index()
-    result = relevant_transactions.groupBy('SIM_NUMBER' , 'DATE_OF_THE_DAY').agg(avg('balance').alias('mean_balance'))
+    #result = relevant_transactions.groupby(['SIM_NUMBER', 'DATE_OF_THE_DAY'])['balance'].mean().reset_index()
+    result = relevant_transactions.groupBy('SIM_NUMBER' , 'DATE_OF_THE_DAY').agg(avg('balance').alias('balance'))
 
     # Sauvegarder les résultats
     return result #.compute().to_csv(output_file, index=False)
@@ -60,7 +56,7 @@ def process_transactions(input_file):
 #process_transactions("/raw/real_transactions_with_dates.csv")
 
 
-def update_transactions(transactions_file, clients_file, output_file):
+def update_transactions(transactions_file, clients_file):
     """
     Met à jour le fichier de transactions avec les SIM_NUMBER présents dans le fichier clients,
     standardise les dates et calcule les moyennes des soldes.
@@ -78,10 +74,10 @@ def update_transactions(transactions_file, clients_file, output_file):
     final_clients = clients_file
 
     # Filtrer les transactions en fonction des SIM_NUMBER présents dans final_clients
-    transactions_previous_month = transactions_previous_month.join(final_clients, on="SIM_NUMBER", how="inner")
-
-    # Convertir DATE_OF_THE_DAY en datetime pour manipuler les dates
-    transactions_previous_month = transactions_previous_month.withColumn("DATE_OF_THE_DAY", to_date(col("DATE_OF_THE_DAY"), "yyyy-MM-dd"))
+    transactions_previous_month = transactions_previous_month.join(final_clients, on="SIM_NUMBER", how="inner")\
+    .select(final_clients["*"],transactions_previous_month["balance"])
+    #transactions_previous_month = transactions_previous_month.withColumnRenamed('DATE_OF_THE_DAY_TMP', 'DATE_OF_THE_DAY')
+    transactions_previous_month = transactions_previous_month.withColumn("DATE_OF_THE_DAY", to_date('DATE_OF_THE_DAY', "yyyy-MM-dd"))
 
     # Ajouter une colonne fictive pour les dates standardisées (2024-11-15 et 2024-11-30)
     transactions_previous_month = transactions_previous_month.withColumn(
@@ -106,9 +102,9 @@ def update_transactions(transactions_file, clients_file, output_file):
     ''' la conversion en date a été fait lors de la creation de la colonne'''
 
     # Réinitialiser l'index pour finaliser
-    '''Je crée un index semblable à celle de pandas'''
-    window_spec = Window.orderBy("SIM_NUMBER") 
-    transactions_previous_month = transactions_previous_month.withColumn("index", row_number().over(window_spec) - 1)
+    '''Je supprime la ligne qui gere l'index'''
+    #window_spec = Window.orderBy("SIM_NUMBER") 
+    #transactions_previous_month = transactions_previous_month.withColumn("index", row_number().over(window_spec) - 1)
 
     # Sauvegarder le fichier mis à jour
     return transactions_previous_month
@@ -122,7 +118,7 @@ def update_transactions(transactions_file, clients_file, output_file):
 
 
 
-def calculate_bonus_malus(input_file, final_clients_file, output_file):
+def calculate_bonus_malus(input_file, final_clients_file):
     """
     Calcule les bonus/malus des clients à partir des transactions et sauvegarde les résultats dans un fichier.
     
@@ -207,7 +203,7 @@ def calculate_bonus_malus(input_file, final_clients_file, output_file):
                                 .withColumn("Bonus_Malus", col("bonus_result.Bonus_Malus")) \
                                 .drop("bonus_result")
     # Sauvegarder les résultats
-    final_clients.to_csv(output_file, index=False)
+    return df_with_bonus #final_clients.to_csv(output_file, index=False)
 
 
 
@@ -218,7 +214,7 @@ def calculate_bonus_malus(input_file, final_clients_file, output_file):
 
 
 
-def update_loans_with_bonus_malus(input_file, output_file):
+def update_loans_with_bonus_malus(input_file):
     """
     Met à jour les colonnes des prêts avec les bonus/malus calculés et sauvegarde le fichier résultant.
 
@@ -233,9 +229,6 @@ def update_loans_with_bonus_malus(input_file, output_file):
     final_clients = input_file
 
     # Mettre à jour les colonnes des prêts avec les bonus/malus
-    for loan_type in ['Nano_Loan', 'Advanced_Credit', 'Macro_Loan', 'Cash_Roller_Over']:
-        updated_column = f"{loan_type}_updated"
-        final_clients[updated_column] = final_clients[loan_type] + final_clients['Bonus_Malus']
     
     for loan_type in ['Nano_Loan', 'Advanced_Credit', 'Macro_Loan', 'Cash_Roller_Over']:
         updated_column = f"{loan_type}_updated"
