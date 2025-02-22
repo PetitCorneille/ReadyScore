@@ -28,8 +28,7 @@ spark = SparkSession.builder \
     .config("spark.mongodb.read.connection.uri", load_params.spark_config["mongodb_uri_l"]) \
     .config("spark.executor.cores", load_params.spark_config["nombre_cores"]) \
     .config("spark.cores.max", load_params.spark_config["nombre_cores_max"]) \
-    .getOrCreate()
-""" 
+    .getOrCreate() 
 print("Étape 0 : Ajout des colonnes aux data sets ....")
 dfc = spark.read.format("mongodb") \
           .option("database", load_params.spark_config["database"]) \
@@ -190,7 +189,7 @@ except Exception as e:
  
     # Étape 11 : Analyse des crédits alloués
 print("Étape 11 : Veuillez exécuter le Notebook EDA dans notebooks/EDA_cash_allocated.ipynb.")
-  """
+  
 # Étape 12 : Gestion des clients avec plusieurs SIM
 print("Étape 12 : Gestion des clients avec plusieurs SIM...")
 try:
