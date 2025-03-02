@@ -37,10 +37,10 @@ def simulate_data(output_path):
     user_kyc.delete_many({})
     user_dat.delete_many({})
     user_real.delete_many({})
-    for transactions_df in pd.read_csv(transactions_path, chunksize=250000):
+    for transactions_df in pd.read_csv(transactions_path, chunksize=100000):
         #transactions_df = pd.read_csv(transactions_path).sample(n=1000000, random_state=123)
         n = n + 1
-        batch_size = 100000
+        batch_size = 10000
         print("le nombre de tour est: ", n)
         # Ajouter une colonne transaction_date basée sur 'step'
         start_date = pd.to_datetime('2023-01-01')
