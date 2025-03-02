@@ -29,7 +29,7 @@ def simulate_data(output_path):
     transactions_path = os.path.join(output_path, "PS_20174392719_1491204439457_log.csv")
     chunksize = 1000000
     n = 0
-    client = MongoClient('mongodb://localhost:27017')
+    client = MongoClient('mongodb://localhost:27017', maxPoolSize=300)
     db = client['scoring']
     user_kyc  = db['simulated_KYC_DATA2']
     user_dat  = db['simulated_USER_DATA_with_dates2']
@@ -37,10 +37,10 @@ def simulate_data(output_path):
     user_kyc.delete_many({})
     user_dat.delete_many({})
     user_real.delete_many({})
-    for transactions_df in pd.read_csv(transactions_path, chunksize=250000):
+    for transactions_df in pd.read_csv(transactions_path, chunksize=1000000):
         #transactions_df = pd.read_csv(transactions_path).sample(n=1000000, random_state=123)
         n = n + 1
-        batch_size = 200000
+        batch_size = 100000
         print("le nombre de tour est: ", n)
         # Ajouter une colonne transaction_date basée sur 'step'
         start_date = pd.to_datetime('2023-01-01')
@@ -51,6 +51,7 @@ def simulate_data(output_path):
         for i in range(0, len(data_dict), batch_size):
             batch = data_dict[i:i + batch_size]
             user_real.insert_many(batch)
+            del batch
         """  
         transactions_with_dates_csv = os.path.join(output_path, "real_transactions_with_dates.csv")
         transactions_with_dates_parquet = os.path.join(output_path, "real_transactions_with_dates.parquet")
@@ -156,6 +157,7 @@ def simulate_data(output_path):
         for i in range(0, len(data_dict), batch_size):
             batch = data_dict[i:i + batch_size]
             user_dat.insert_many(batch)
+            del batch
         #collection_user_data.insert_many(data_u)
         del data_dict
         gc.collect()
@@ -211,6 +213,7 @@ def simulate_data(output_path):
         for i in range(0, len(data_u), batch_size):
             batch = data_u[i:i + batch_size]
             user_kyc.insert_many(batch)
+            del batch
         #collection_user_data.insert_many(data_u)
         del data_u
         gc.collect()
@@ -220,6 +223,7 @@ def simulate_data(output_path):
         #kyc_data_parquet = os.path.join(output_path, "simulated_KYC_DATA.parquet")
         #kyc_data.to_csv(kyc_data_csv, index=False)
         #kyc_data.to_parquet(kyc_data_parquet, index=False)
+        del transactions_df
 
     print("Simulation terminée.")
         
