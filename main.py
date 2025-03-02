@@ -18,7 +18,7 @@ import time
 start_time = time.time()
 
 #Lecture des données de config
-load_params.charger_json("config/config.json")
+load_params.charger_json("/home/readyscore1/ReadyScore/config/config.json")
 spark = SparkSession.builder \
     .appName("MongoDB_Spark") \
     .config("spark.jars.packages", "org.mongodb.spark:mongo-spark-connector_2.12:10.4.1") \
