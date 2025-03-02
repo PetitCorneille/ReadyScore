@@ -37,7 +37,7 @@ def simulate_data(output_path):
     user_kyc.delete_many({})
     user_dat.delete_many({})
     user_real.delete_many({})
-    for transactions_df in pd.read_csv(transactions_path, chunksize=500000):
+    for transactions_df in pd.read_csv(transactions_path, chunksize=250000):
         #transactions_df = pd.read_csv(transactions_path).sample(n=1000000, random_state=123)
         n = n + 1
         batch_size = 200000
