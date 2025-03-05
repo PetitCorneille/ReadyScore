@@ -9,7 +9,7 @@ import gc
 # Initialiser Faker pour générer des données aléatoires
 fake = Faker()
 
-def simulate_data(output_path):
+def simulate_data(nbre):
     """
     Simule les données de transactions, d'utilisateur (USER_DATA) et de KYC.
 
@@ -20,13 +20,12 @@ def simulate_data(output_path):
         list: Liste des chemins des fichiers générés.
     """
     # Assurez-vous que le chemin de sortie existe
-    os.makedirs(output_path, exist_ok=True)
 
     ####################################### Transactions Data ######################################
     print("Simulation des données de transactions...")
     
     # Charger le dataset réel (simulé ici avec des sous-échantillons)
-    transactions_path = os.path.join(output_path, "PS_20174392719_1491204439457_log.csv")
+    transactions_path = os.path.join("data/raw/", "PS_20174392719_1491204439457_log.csv")
     chunksize = 1000000
     n = 0
     client = MongoClient('mongodb://localhost:27017', maxPoolSize=300)
@@ -37,11 +36,19 @@ def simulate_data(output_path):
     user_kyc.delete_many({})
     user_dat.delete_many({})
     user_real.delete_many({})
-    for transactions_df in pd.read_csv(transactions_path, chunksize=100000):
-        #transactions_df = pd.read_csv(transactions_path).sample(n=1000000, random_state=123)
-        n = n + 1
-        batch_size = 10000
-        print("le nombre de tour est: ", n)
+    n = n + 1
+    batch_size = 10000
+    total_ligne_lue = 0
+    for transactions_df in pd.read_csv(transactions_path, chunksize=1000):
+        total_ligne_lue += len(transactions_df)
+        
+        if total_ligne_lue > nbre:
+            transactions_df = transactions_df.head(nbre - (total_ligne_lue - len(transactions_df)))
+            print(f"Nombre total de lignes inseré est  : {total_ligne_lue}")
+            break
+        n += 1
+
+        #print("le nombre de tour est: ", n)
         # Ajouter une colonne transaction_date basée sur 'step'
         start_date = pd.to_datetime('2023-01-01')
         transactions_df['transaction_date'] = start_date + pd.to_timedelta(transactions_df['step'], unit='d')
@@ -65,11 +72,11 @@ def simulate_data(output_path):
         unique_customers = pd.unique(transactions_df['nameOrig'].values.ravel('K'))
 
         ######################################### USER_DATA ###########################################
-        print("Simulation des données utilisateur (USER_DATA)...")
+        #print("Simulation des données utilisateur (USER_DATA)...")
         
         # Nombre total de clients uniques
         num_customers = len(unique_customers)
-        print("le nombre de lot est : ", num_customers)
+        #print("le nombre de lot est : ", num_customers)
         # Générer les données USER_DATA
         user_data = pd.DataFrame({
             'DATE_OF_THE_DAY': np.random.choice(transactions_df['transaction_date'].dt.strftime('%Y%m%d'), size=num_customers),
@@ -161,14 +168,14 @@ def simulate_data(output_path):
         #collection_user_data.insert_many(data_u)
         del data_dict
         gc.collect()
-        print("Insertion user data réussie !")
+        #print("Insertion user data réussie !")
         #user_data_csv = os.path.join(output_path, "simulated_USER_DATA_with_dates.csv")
         #user_data_parquet = os.path.join(output_path, "simulated_USER_DATA_with_dates.parquet")
         #user_data.to_csv(user_data_csv, index=False)
         #user_data.to_parquet(user_data_parquet, index=False)
 
         ######################################### KYC Data ###########################################
-        print("Simulation des données KYC...")
+        #print("Simulation des données KYC...")
         
         # Générer les données KYC
 
@@ -218,7 +225,7 @@ def simulate_data(output_path):
         del data_u
         gc.collect()
 
-        print("Insertion user kyc réussie !")  
+        #print("Insertion user kyc réussie !")  
         #kyc_data_csv = os.path.join(output_path, "simulated_KYC_DATA.csv")
         #kyc_data_parquet = os.path.join(output_path, "simulated_KYC_DATA.parquet")
         #kyc_data.to_csv(kyc_data_csv, index=False)
@@ -231,6 +238,5 @@ def simulate_data(output_path):
     #return [transactions_with_dates_csv, transactions_with_dates_parquet, user_data_csv, user_data_parquet, kyc_data_csv, kyc_data_parquet]
 
 # Exécutable pour tester indépendamment
-if __name__ == "__main__":
-    simulate_data("data/raw/")
-
+#if __name__ == "__main__":
+    #simulate_data("data/raw/")
