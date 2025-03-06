@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 from faker import Faker
+import argparse
 import random
 from pymongo import MongoClient
 import gc
@@ -238,5 +239,8 @@ def simulate_data(nbre):
     #return [transactions_with_dates_csv, transactions_with_dates_parquet, user_data_csv, user_data_parquet, kyc_data_csv, kyc_data_parquet]
 
 # Exécutable pour tester indépendamment
-#if __name__ == "__main__":
-    #simulate_data("data/raw/")
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Simuler des données de transactions.")
+    parser.add_argument('lines_to_read', type=int, help="Le nombre de lignes à lire dans le fichier CSV.")
+    args = parser.parse_args()
+    simulate_data(nbre=args.lines_to_read)

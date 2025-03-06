@@ -48,7 +48,7 @@ def process_transactions(input_file):
     # Grouper par SIM_NUMBER et DATE_OF_THE_DAY, puis calculer la moyenne des soldes
     #result = relevant_transactions.groupby(['SIM_NUMBER', 'DATE_OF_THE_DAY'])['balance'].mean().reset_index()
     result = relevant_transactions.groupBy('SIM_NUMBER' , 'DATE_OF_THE_DAY').agg(avg('balance').alias('balance'))
-
+    pdb.set_trace()
     # Sauvegarder les résultats
     return result #.compute().to_csv(output_file, index=False)
 
@@ -147,63 +147,55 @@ def calculate_bonus_malus(input_file, final_clients_file):
     final_clients = final_clients.join(balance_30, on="SIM_NUMBER", how="left")
 
     # Calcul des bonus/malus
-    result_schema = StructType([
-        StructField("Repayment_Label", StringType(), True),
-        StructField("Bonus_Malus", DoubleType(), True)
-    ])
+    def calculate_bonus_malus(df):
+    # Appliquer les conditions de crédit pour déterminer min_loan et max_loan
+        df = df.withColumn(
+            "min_loan", 
+            when(col("Nano_Loan").isNotNull(), 20)
+            .when(col("Macro_Loan").isNotNull(), 25)
+            .when(col("Advanced_Credit").isNotNull(), 100)
+            .when(col("Cash_Roller_Over").isNotNull(), 100)
+            .otherwise(0)
+        )
+        
+        df = df.withColumn(
+            "max_loan", 
+            when(col("Nano_Loan").isNotNull(), 45)
+            .when(col("Macro_Loan").isNotNull(), 250)
+            .when(col("Advanced_Credit").isNotNull(), 500)
+            .when(col("Cash_Roller_Over").isNotNull(), 500)
+            .otherwise(0)
+        )
 
-    # Définition de l'UDF en PySpark
-    @udf(returnType=result_schema)
-    def calculate_bonus_malus(nano_loan, macro_loan, advanced_credit, cash_roller_over, balance_first, balance_second):
-        min_loan, max_loan = 0, 0
-
-        # Fonction utilitaire pour vérifier que la valeur n'est ni None ni NaN
-        def is_valid(val):
-            return val is not None and not (isinstance(val, float) and math.isnan(val))
-
-        # Détermination des bornes de crédit selon le type de crédit
-        if is_valid(nano_loan):
-            min_loan, max_loan = 20, 45
-        elif is_valid(macro_loan):
-            min_loan, max_loan = 25, 250
-        elif is_valid(advanced_credit):
-            min_loan, max_loan = 100, 500
-        elif is_valid(cash_roller_over):
-            min_loan, max_loan = 100, 500
-
-        # Application des règles de bonus/malus
-        if balance_first <= 0 or balance_second <= 0:
-            repayment_label = "Strong ability to borrow"
-            bonus_malus = max_loan + (max_loan * 20 / 100)
-        elif balance_first > 0 and balance_second > 0:
-            repayment_label = "Strong repayment capacity"
-            bonus_malus = max_loan - (max_loan * 20 / 100)
-        elif balance_first > 0 and balance_second <= 0:
-            repayment_label = "Ability to borrow"
-            bonus_malus = max_loan + (max_loan * 10 / 100)  # ajustement de 10%
-        else:
-            repayment_label = "Uncertain"
-            bonus_malus = 0.0
-
-        return (repayment_label, bonus_malus)
-
-    # Application de l'UDF sur le DataFrame final_clients
-    # On crée une nouvelle colonne temporaire "bonus_result" de type struct, puis on extrait ses champs
-    df_with_bonus = final_clients.withColumn("bonus_result", calculate_bonus_malus(
-        col("Nano_Loan"),
-        col("Macro_Loan"),
-        col("Advanced_Credit"),
-        col("Cash_Roller_Over"),
-        col("Balance_First"),
-        col("Balance_Second")
-    ))
-
-    # Extraction des colonnes et suppression de la colonne temporaire
-    df_with_bonus = df_with_bonus.withColumn("Repayment_Label", col("bonus_result.Repayment_Label")) \
-                                .withColumn("Bonus_Malus", col("bonus_result.Bonus_Malus")) \
-                                .drop("bonus_result")
+        # Calculer le label "Repayment_Label" basé sur les balances
+        df = df.withColumn(
+            "Repayment_Label", 
+            when((col("Balance_First") <= 0) | (col("Balance_Second") <= 0), "Strong ability to borrow")
+            .when((col("Balance_First") > 0) & (col("Balance_Second") > 0), "Strong repayment capacity")
+            .when((col("Balance_First") > 0) & (col("Balance_Second") <= 0), "Ability to borrow")
+            .otherwise("Uncertain")
+        )
+        
+        # Calcul du bonus/malus
+        df = df.withColumn(
+            "Bonus_Malus", 
+            when((col("Balance_First") <= 0) | (col("Balance_Second") <= 0), 
+                col("max_loan") + (col("max_loan") * 0.2))  # 20% bonus
+            .when((col("Balance_First") > 0) & (col("Balance_Second") > 0), 
+                col("max_loan") - (col("max_loan") * 0.2))  # 20% malus
+            .when((col("Balance_First") > 0) & (col("Balance_Second") <= 0), 
+                col("max_loan") + (col("max_loan") * 0.1))  # 10% bonus
+            .otherwise(0)  # Si aucune condition n'est remplie
+        )
+        
+        df.drop('max_loan', 'min_loan')
+    
+        return df
+    
+    # Appliquer la fonction pour calculer les bonus/malus
+    final_clients = calculate_bonus_malus(final_clients)
     # Sauvegarder les résultats
-    return df_with_bonus #final_clients.to_csv(output_file, index=False)
+    return final_clients 
 
 
 

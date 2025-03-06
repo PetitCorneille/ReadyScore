@@ -18,7 +18,7 @@ import time
 start_time = time.time()
 
 #Lecture des données de config
-load_params.charger_json("/home/readyscore1/ReadyScore/config/config.json")
+load_params.charger_json("./config/config.json")
 spark = SparkSession.builder \
     .appName("MongoDB_Spark") \
     .config("spark.jars.packages", "org.mongodb.spark:mongo-spark-connector_2.12:10.4.1") \
@@ -26,9 +26,11 @@ spark = SparkSession.builder \
     .config("spark.executor.memory", load_params.spark_config["memoire_executor"])\
     .master(load_params.spark_config["master"])\
     .config("spark.mongodb.read.connection.uri", load_params.spark_config["mongodb_uri_l"]) \
+    .config("spark.mongodb.write.connection.uri", load_params.spark_config["mongodb_uri_e"]) \
     .config("spark.executor.cores", load_params.spark_config["nombre_cores"]) \
     .config("spark.cores.max", load_params.spark_config["nombre_cores_max"]) \
     .getOrCreate() 
+
 dfc = spark.read.format("mongodb") \
           .option("database", load_params.spark_config["database"]) \
           .option("collection", "simulated_KYC_DATA2") \
@@ -146,27 +148,15 @@ try:
     #segmented_data = pd.read_csv(segmented_data_path)
 
     # Appliquer les fonctions d'attribution
-    output_schema = StructType([
-        StructField("Nano_Loan", IntegerType(), True),
-        StructField("Advanced_Credit", IntegerType(), True)
-    ])
-    
-    calculate_individual_credits_udf = udf(calculate_individual_credits, output_schema)
-    segmented_data = segmented_data.withColumn(
-    "credit_struct", calculate_individual_credits_udf(struct(*segmented_data.columns)))
+    segmented_data = segmented_data.withColumn("credits", calculate_individual_credits(col("Profile_Code"), col("CUST_CATEGORY")))
 
-    segmented_data = segmented_data.withColumn("Nano_Loan", col("credit_struct.Nano_Loan")) \
-                               .withColumn("Advanced_Credit", col("credit_struct.Advanced_Credit")) \
-                               .drop("credit_struct")
+    # Extraire les colonnes de résultats du Struct
+    segmented_data = segmented_data.withColumn("Nano_Loan", col("credits.Nano_Loan")) \
+                                .withColumn("Advanced_Credit", col("credits.Advanced_Credit")) \
+                                .drop("credits")
     
-    output_schem = StructType([
-        StructField("Macro_Loan", IntegerType(), True),
-        StructField("Cash_Roller_Over", IntegerType(), True)
-    ])
-    
-    calculate_business_credits_udf = udf(calculate_business_credits, output_schem)
-    segmented_data = segmented_data.withColumn(
-    "credit", calculate_business_credits_udf(struct(*segmented_data.columns)))
+    # Appliquer les fonctions d'attribution
+    segmented_data = segmented_data.withColumn("credit", calculate_business_credits(col("Profile_Code"), col("CUST_CATEGORY")))
 
     segmented_data = segmented_data.withColumn("Macro_Loan", col("credit.Macro_Loan")) \
                                .withColumn("Cash_Roller_Over", col("credit.Cash_Roller_Over")) \
@@ -234,7 +224,6 @@ try:
                     .option("collection", "transactions_previous_month") \
                     .mode("overwrite") \
                     .save()
-    
     # Étape c: Calcul des bonus/malus
     print("Calcul des bonus/malus pour les clients...")
     final_clients_with_bonus_malus = calculate_bonus_malus(transactions_previous_month, final_clients)

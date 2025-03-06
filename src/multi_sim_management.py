@@ -15,8 +15,7 @@ def identify_multi_sim_clients(data):
         pd.DataFrame: Clients ayant plus d'une carte SIM avec leurs informations.
     """
     multi_sim_clients = (
-        data.groupBy('ID_TYPE', 'ID_NUMBER')  
-        .agg(F.countDistinct('ID_TYPE', 'ID_NUMBER').alias('SIM_COUNT'))  
+        data.groupBy('ID_TYPE', 'ID_NUMBER').agg(F.countDistinct('ID_TYPE', 'ID_NUMBER').alias('SIM_COUNT'))  
     )
     return multi_sim_clients.filter(multi_sim_clients['SIM_COUNT'] > 1)
 
@@ -74,22 +73,18 @@ def manage_multi_sim_clients(data):
     best_profiles = select_best_profile(multi_sim_details)
 
     # Identifier les clients à SIM unique
-    single_sim_clients = data.join(
-        multi_sim_clients.select('ID_TYPE', 'ID_NUMBER'), 
-        on=['ID_TYPE', 'ID_NUMBER'], 
-        how='left' 
-    )
-    single_sim_clients = single_sim_clients\
-                    .filter(multi_sim_clients.ID_TYPE.isNull() & multi_sim_clients.ID_NUMBER.isNull())\
-                    .select(data.columns)
+    single_sim_clients = data.join(multi_sim_clients.select('ID_TYPE', 'ID_NUMBER'), 
+        on=['ID_TYPE', 'ID_NUMBER'], how='left' )
+    single_sim_clients = single_sim_clients.withColumn("_merge", F.when(F.col('ID_TYPE').isNull(), 'both').otherwise('left_only'))
     
-
+    single_sim_clients = single_sim_clients.filter(single_sim_clients['_merge'] == 'left_only')
+    single_sim_clients = single_sim_clients.drop('_merge')
+   
     best_profiles = best_profiles.drop('Segment_Score', 'Max_Credit')
-
+    best_profiles = best_profiles.select(*single_sim_clients.columns)
     # Combiner les données pour créer la DataFrame finale
     final_clients = single_sim_clients.union(best_profiles)
     #final_clients = final_clients.withColumn('row_id', F.monotonically_increasing_id())
-    #pdb.set_trace()
     final_clients.drop('Segment_Score', 'Max_Credit')
     return final_clients
 

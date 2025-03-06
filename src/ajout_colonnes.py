@@ -2,7 +2,9 @@ import re
 from pyspark.sql.functions import udf,lit
 from pyspark.sql.types import StringType
 import load_params
+import rstr
 import random
+import time
 import pdb
 
 def ajout_colonne (df):
@@ -14,43 +16,23 @@ def ajout_colonne (df):
     
     def generate_phone_number(regex1, regex2, n):
         numbers = []
-        
         # Générer la moitié des numéros pour regex1 et l'autre moitié pour regex2
         n_regex1 = n // 2
         n_regex2 = n - n_regex1  # Pour s'assurer qu'on génère le bon nombre de numéros au total
         
-        # Fonction pour extraire les préfixes d'un regex donné
-        def extract_prefixes(regex):
-            match = re.search(r"\^237(\d{2})", regex)  # Cherche les préfixes après "237"
-            if match:
-                return match.group(1)
-            return None
+        regex1_mod = regex1.lstrip("^").rstrip("$")
+        regex2_mod = regex2.lstrip("^").rstrip("$")
 
-        # Générer n_regex1 numéros pour regex1
-        for _ in range(n_regex1):
-            while True:
-                number = "237"  # Préfixe fixe
-                prefix1 = extract_prefixes(regex1)  # Extraire le préfixe dynamique du regex1
-                
-                if prefix1:
-                    # Générer un numéro avec le préfixe extrait
-                    number += prefix1 + "".join([str(random.randint(0, 9)) for _ in range(7)])
-                    if re.match(regex1, number):  # Valider avec le regex1
-                        numbers.append(number)
-                        break
-
-        # Générer n_regex2 numéros pour regex2
-        for _ in range(n_regex2):
-            while True:
-                number = "237"  # Préfixe fixe
-                prefix2 = extract_prefixes(regex2)  # Extraire le préfixe dynamique du regex2
-                
-                if prefix2:
-                    # Générer un numéro avec le préfixe extrait
-                    number += prefix2 + "".join([str(random.randint(0, 9)) for _ in range(7)])
-                    if re.match(regex2, number):  # Valider avec le regex2
-                        numbers.append(number)
-                        break
+        # Génération pour regex1
+        for i in range(n_regex1):
+            # Modifier la graine à chaque itération en combinant le temps et l'indice
+            random.seed(time.time() + i)
+            numbers.append(rstr.xeger(regex1_mod))
+        
+        # Génération pour regex2
+        for i in range(n_regex2):
+            random.seed(time.time() + i)
+            numbers.append(rstr.xeger(regex2_mod))
 
         return numbers
     
@@ -75,11 +57,11 @@ def ajout_colonne (df):
     detect_country_udf = udf(detect_country, StringType())
     get_server_ip_udf = udf(get_server_ip, StringType())
     # Ajout des colonnes Opérateur, Pays et IP Serveur
-    if len(phone) < n:
-        phone = phone * (n // len(phone)) + phone[:n % len(phone)]
+    #if len(phone) < n:
+    #    phone = phone * (n // len(phone)) + phone[:n % len(phone)]
 
-    df = df.withColumn("TELEPHONE", lit(phone[0]))
-    df = df.withColumn("Pays", detect_country_udf(df["SIM_NUMBER"]))
-    df = df.withColumn("IP_Server", get_server_ip_udf(df["Operateur_pays"]))
+    df = df.withColumn("TELEPHONE", lit(phone))
+    #df = df.withColumn("Pays", detect_country_udf(df["SIM_NUMBER"]))
+    #df = df.withColumn("IP_Server", get_server_ip_udf(df["Operateur_pays"]))
 
     return df

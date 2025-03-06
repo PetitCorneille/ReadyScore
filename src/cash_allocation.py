@@ -1,8 +1,10 @@
 
 import pdb
+from pyspark.sql.functions import udf
+from pyspark.sql.types import StructType, StructField, DoubleType
 
 
-def calculate_individual_credits(row):
+def calculate_individual(profile_code, category):
     """
     Calcule les crédits Nano et Advanced pour les clients individuels.
 
@@ -12,9 +14,6 @@ def calculate_individual_credits(row):
     Returns:
         tuple: (Nano Loan, Advanced Credit) pour les clients individuels.
     """
-    # Extract profile code and category
-    profile_code = str(row['Profile_Code'])
-    category = row['CUST_CATEGORY']
 
     # Only calculate for Individual clients
     if category != "Individual":
@@ -41,8 +40,22 @@ def calculate_individual_credits(row):
     advanced_credit = advanced_min + normalized_score * (advanced_max - advanced_min)
     return nano_loan, advanced_credit
 
+# Définition d'une UDF (User Defined Function) pour Spark
+def calculate_individual_credits_udf(profile_code, category):
+    """
+    UDF pour PySpark qui applique la logique de calcul des crédits.
+    """
+    nano_loan, advanced_credit = calculate_individual(profile_code, category)
+    return (nano_loan, advanced_credit)
 
-def calculate_business_credits(row):
+
+# Création de l'UDF Spark
+calculate_individual_credits = udf(calculate_individual_credits_udf, StructType([
+    StructField("Nano_Loan", DoubleType(), True),
+    StructField("Advanced_Credit", DoubleType(), True)
+]))
+
+def calculate_business(profile_code, category):
     """
     Calcule les crédits Macro et Cash Roller Over pour les clients Business.
 
@@ -52,10 +65,6 @@ def calculate_business_credits(row):
     Returns:
         tuple: (Macro Loan, Cash Roller Over) pour les clients Business.
     """
-    # Extract profile code and category
-    profile_code = str(row['Profile_Code'])
-    category = row['CUST_CATEGORY']
-
     # Only calculate for Business clients
     if category != "Business":
         return None, None  # Return None for non-Business clients
@@ -81,3 +90,17 @@ def calculate_business_credits(row):
     cash_roller = cash_roller_min + normalized_score * (cash_roller_max - cash_roller_min)
 
     return macro_loan, cash_roller
+
+
+def calculate_business_credits_udf(profile_code, category):
+    """
+    UDF pour PySpark qui applique la logique de calcul des crédits.
+    """
+    nano_loan, advanced_credit = calculate_business(profile_code, category)
+    return (nano_loan, advanced_credit)
+
+# Création de l'UDF Spark
+calculate_business_credits = udf(calculate_business_credits_udf, StructType([
+    StructField("Macro_Loan", DoubleType(), True),
+    StructField("Cash_Roller_Over", DoubleType(), True)
+]))

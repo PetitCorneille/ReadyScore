@@ -41,4 +41,4 @@ def load_and_merge_data(user_data_path, kyc_data_path):
     return f"Fichier fusionné sauvegardé dans la collection merged_data" 
 # Code exécuté directement si le script est appelé
 if __name__ == "__main__":
-    load_and_merge_data(None, None)
+    print('cete fonction ne s\'appele pas ainsi')
