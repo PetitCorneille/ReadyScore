@@ -48,7 +48,7 @@ def process_transactions(input_file):
     # Grouper par SIM_NUMBER et DATE_OF_THE_DAY, puis calculer la moyenne des soldes
     #result = relevant_transactions.groupby(['SIM_NUMBER', 'DATE_OF_THE_DAY'])['balance'].mean().reset_index()
     result = relevant_transactions.groupBy('SIM_NUMBER' , 'DATE_OF_THE_DAY').agg(avg('balance').alias('balance'))
-    pdb.set_trace()
+    #pdb.set_trace()
     # Sauvegarder les résultats
     return result #.compute().to_csv(output_file, index=False)
 

@@ -39,9 +39,9 @@ dfu = spark.read.format("mongodb") \
           .option("database", load_params.spark_config["database"]) \
           .option("collection", "simulated_USER_DATA_with_dates2") \
           .load()
-dfc = ajout_colonne(dfc)
+dfc = ajout_colonne(dfc,spark)
 print("Colonnes ajoutées aux user data")
-dfu = ajout_colonne(dfu)
+dfu = ajout_colonne(dfu,spark)
 print("Colonnes ajoutées aux user kyc")
 
 #dfc.delete_many({})
@@ -227,14 +227,19 @@ try:
     # Étape c: Calcul des bonus/malus
     print("Calcul des bonus/malus pour les clients...")
     final_clients_with_bonus_malus = calculate_bonus_malus(transactions_previous_month, final_clients)
-
-    # Étape d: Mise à jour des prêts des clients avec le bonus/malus
-    print("Mise à jour des prêts des clients avec le bonus/malus...")
-    final_clients_with_bonus_malus = update_loans_with_bonus_malus(final_clients_with_bonus_malus)
     final_clients_with_bonus_malus.write \
                     .format("mongodb") \
                     .option("database", load_params.spark_config["database"]) \
                     .option("collection", "final_clients_with_bonus_malus") \
+                    .mode("overwrite") \
+                    .save()
+    # Étape d: Mise à jour des prêts des clients avec le bonus/malus
+    print("Mise à jour des prêts des clients avec le bonus/malus...")
+    final_clients_with_updated_loans = update_loans_with_bonus_malus(final_clients_with_bonus_malus)
+    final_clients_with_updated_loans.write \
+                    .format("mongodb") \
+                    .option("database", load_params.spark_config["database"]) \
+                    .option("collection", "final_clients_with_updated_loans") \
                     .mode("overwrite") \
                     .save()
     print(f"Collections mise à jour avec succès dans la base de données Scoring.")

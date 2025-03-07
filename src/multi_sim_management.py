@@ -1,5 +1,4 @@
 from pyspark.sql import functions as F
-from pyspark.sql.functions import pandas_udf ,PandasUDFType
 from pyspark.sql.window import Window
 from pyspark.sql.types import StructType, StructField, IntegerType, StringType, FloatType
 import pdb
@@ -30,7 +29,8 @@ def select_best_profile(group):
         pd.Series: Ligne représentant le meilleur profil pour le client.
     """
     # Create a new column 'Segment_Score' based on the 'Segment' column
-    group = group.withColumn('Segment_Score', F.when(group['Segment'] == 'Very Low', 1)
+    group = group.withColumn('Segment_Score', 
+                            F.when(group['Segment'] == 'Very Low', 1)
                              .when(group['Segment'] == 'Low', 2)
                              .when(group['Segment'] == 'Medium', 3)
                              .when(group['Segment'] == 'High', 4)
@@ -39,11 +39,9 @@ def select_best_profile(group):
     # Create a new column 'Max_Credit' as the maximum of the specified columns
     group = group.withColumn('Max_Credit', F.greatest('Nano_Loan', 'Advanced_Credit', 'Macro_Loan', 'Cash_Roller_Over'))
     # Define a window specification to partition by 'ID_TYPE' and 'ID_NUMBER' and order by 'Segment_Score' and 'Max_Credit'
-    window_spec = Window.partitionBy('ID_TYPE', 'ID_NUMBER').orderBy(F.desc('Segment_Score'), F.desc('Max_Credit'))
-    # Add a row number to each row within its partition
-    group = group.withColumn('row_num', F.dense_rank().over(window_spec))
-    # Filter to get only the top-ranked row for each group
-    best_profiles = group.filter(group['row_num'] == 1).drop('row_num')
+    window_spec = Window.partitionBy('ID_TYPE', 'ID_NUMBER').orderBy(F.col('Segment_Score').desc(), F.col('Max_Credit').desc())
+    group = group.withColumn('rank', F.row_number().over(window_spec))
+    best_profiles = group.filter(group['rank'] == 1).drop('rank')
     return best_profiles
 
 
@@ -59,27 +57,23 @@ def manage_multi_sim_clients(data):
     """
     # Identifier les clients avec plusieurs SIM
     multi_sim_clients = identify_multi_sim_clients(data)
-    
     # Extraire les détails des clients multi-SIM
     multi_sim_details = data.join(
         multi_sim_clients.select('ID_TYPE', 'ID_NUMBER'), 
-        on=['ID_TYPE', 'ID_NUMBER'], 
-        how='inner'  
-    )
+        on = ['ID_TYPE', 'ID_NUMBER'], 
+        how='inner' 
+        ).dropDuplicates(['ID_TYPE', 'ID_NUMBER'])
     multi_sim_details = multi_sim_details.select(data.columns)
-
     # Appliquer la sélection du meilleur profil
-    
     best_profiles = select_best_profile(multi_sim_details)
-
     # Identifier les clients à SIM unique
     single_sim_clients = data.join(multi_sim_clients.select('ID_TYPE', 'ID_NUMBER'), 
-        on=['ID_TYPE', 'ID_NUMBER'], how='left' )
-    single_sim_clients = single_sim_clients.withColumn("_merge", F.when(F.col('ID_TYPE').isNull(), 'both').otherwise('left_only'))
-    
+        on=['ID_TYPE', 'ID_NUMBER'], how='left' ).dropDuplicates(['ID_TYPE', 'ID_NUMBER'])
+    single_sim_clients = single_sim_clients.withColumn("_merge", 
+                        F.when(F.col("ID_TYPE").isNull() & F.col("ID_NUMBER").isNull(), 'both')\
+                            .otherwise('left_only'))
     single_sim_clients = single_sim_clients.filter(single_sim_clients['_merge'] == 'left_only')
     single_sim_clients = single_sim_clients.drop('_merge')
-   
     best_profiles = best_profiles.drop('Segment_Score', 'Max_Credit')
     best_profiles = best_profiles.select(*single_sim_clients.columns)
     # Combiner les données pour créer la DataFrame finale
