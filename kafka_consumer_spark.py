@@ -31,9 +31,6 @@ df_parsed = df.selectExpr("CAST(value AS STRING)") \
     .select(from_json(col("value"), schema).alias("data")) \
     .select("data.*")
 
-# 💡 Application de la fonction UDF pour ajouter une colonne "loan_risk"
-#df_filtered = df_parsed.filter(col("operator") == "Orange")
-#df_transformed = df_parsed.withColumn("loan_risk", loan_risk_udf(col("loan_amount"), col("refund_amount")))
 
 '''La partie à rediger'''
 

@@ -14,7 +14,7 @@ producer = Producer(kafka_conf)
 # Fonction pour envoyer les messages à Kafka
 def send_to_kafka(change):
     data = change["fullDocument"]  # Récupère le document inséré
-    producer.produce("mongo_topic", key=str(data["_id"]), value=json.dumps(data, default=str))
+    producer.produce("loans_topic", key=str(data["_id"]), value=json.dumps(data, default=str))
     producer.flush()
     print(f"Message envoyé : {data}")
 
